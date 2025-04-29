@@ -1,31 +1,32 @@
-# ---------- Dockerfile ----------
-
-# 1) Base image
+# 1) Start from a slim Python image
 FROM python:3.11-slim
 
-# 2) Install system deps for OCR (Tesseract), PDF → image (Poppler), OpenCV
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+# 2) Install system packages for OCR & PDF→image
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
       tesseract-ocr \
       poppler-utils \
-      libsm6 \
-      libxext6 \
-      libxrender1 && \
-    rm -rf /var/lib/apt/lists/*
+      build-essential \
+ && rm -rf /var/lib/apt/lists/*
 
-# 3) Set working directory
+# 3) Create & switch to app dir
 WORKDIR /app
 
-# 4) Copy & install Python dependencies
+# 4) Copy & install Python deps
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir gunicorn
 
 # 5) Copy your application code
-COPY main.py utils.py ./
+COPY . .
 
-# 6) Expose port (optional; Render will inject $PORT)
-EXPOSE 8000
+# 6) Tell Docker what port to expose
+#    (Render will set $PORT at runtime)
+ENV PORT=8000
+EXPOSE ${PORT}
 
-# 7) Launch with Gunicorn + Uvicorn worker, binding to 0.0.0.0:$PORT (default 8000)
-CMD ["sh", "-c", "gunicorn main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8000}"]
-# ---------------------------------
+# 7) Launch via Gunicorn+Uvicorn worker
+ENTRYPOINT ["sh", "-c", "exec gunicorn main:app \
+    -k uvicorn.workers.UvicornWorker \
+    --bind 0.0.0.0:${PORT} \
+    --timeout 120"]
