@@ -7,13 +7,12 @@ import io
 
 from utils import pdf_to_images, preprocess_image, extract_table_cells, parse_row
 
-app = FastAPI(title="Lab-Report OCR API", version="0.2.0")
-
-
-@app.get("/")
-async def root():
-    return {"message": "Lab-report OCR API is running"}
-
+# Serve Swagger UI at "/" and disable ReDoc
+app = FastAPI(
+    docs_url="/",        # interactive docs on GET /
+    redoc_url=None,      # disable ReDoc
+    openapi_url="/openapi.json"
+)
 
 class LabTest(BaseModel):
     test_name: str
@@ -22,11 +21,16 @@ class LabTest(BaseModel):
     test_unit: str
     lab_test_out_of_range: bool
 
-
 class ResponseModel(BaseModel):
     is_success: bool
     data: List[LabTest]
 
+@app.get("/health", include_in_schema=False)
+async def health_check():
+    """
+    Basic health-check endpoint; not shown in the docs.
+    """
+    return {"message": "Lab-report OCR API is running"}
 
 @app.post("/get-lab-tests", response_model=ResponseModel)
 async def get_lab_tests(file: UploadFile = File(...)):
