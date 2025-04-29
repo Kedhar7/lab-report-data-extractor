@@ -7,12 +7,17 @@ import io
 
 from utils import pdf_to_images, preprocess_image, extract_table_cells, parse_row
 
-# Serve Swagger UI at "/" and disable ReDoc
 app = FastAPI(
-    docs_url="/",        # interactive docs on GET /
-    redoc_url=None,      # disable ReDoc
-    openapi_url="/openapi.json"
+    title="Lab-Report OCR API",
+    version="0.2.0",
+    description="Upload a lab-report page (PNG/JPG or PDF) and get back structured test results."
 )
+
+
+@app.get("/", summary="Health check")
+async def root():
+    return {"message": "Lab-Report OCR API is running"}
+
 
 class LabTest(BaseModel):
     test_name: str
@@ -21,21 +26,23 @@ class LabTest(BaseModel):
     test_unit: str
     lab_test_out_of_range: bool
 
+
 class ResponseModel(BaseModel):
     is_success: bool
     data: List[LabTest]
 
-@app.get("/health", include_in_schema=False)
-async def health_check():
-    """
-    Basic health-check endpoint; not shown in the docs.
-    """
-    return {"message": "Lab-report OCR API is running"}
 
-@app.post("/get-lab-tests", response_model=ResponseModel)
-async def get_lab_tests(file: UploadFile = File(...)):
+@app.post(
+    "/get-lab-tests",
+    response_model=ResponseModel,
+    summary="Extract lab tests from an image or PDF page",
+)
+async def get_lab_tests(file: UploadFile = File(..., description="PNG/JPG or PDF page")):
     # 1) Validate upload type
-    if not (file.content_type.startswith("image/") or file.content_type == "application/pdf"):
+    if not (
+        file.content_type.startswith("image/")
+        or file.content_type == "application/pdf"
+    ):
         raise HTTPException(400, "Unsupported file type: upload PNG/JPG or PDF")
 
     contents = await file.read()
